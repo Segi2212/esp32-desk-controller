@@ -1,16 +1,24 @@
 import os
 import psutil
 import asyncio
+import json
 
 from pathlib import Path
 from dotenv import load_dotenv
 from bleak.exc import BleakError
 from bleak import BleakClient, BleakScanner
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+# load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+ROOT = Path(__file__).resolve().parent.parent  # Repository root
+
+load_dotenv(ROOT / ".env")
+PROTOCOL = json.loads((ROOT / "protocol.json").read_text(encoding="utf-8"))
+
+BATTERY_UUID = PROTOCOL["characteristics"]["battery"]
 
 DEVICE_NAME = os.getenv("DESK_DEVICE_NAME")
-BATTERY_UUID = "4c2f0001-8e3d-4b7a-9c61-2f5d8a1b3e70"
+# BATTERY_UUID = "4c2f0001-8e3d-4b7a-9c61-2f5d8a1b3e70"
 INTERVAL = 2  # seconds between messages
 
 
