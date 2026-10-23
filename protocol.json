@@ -1,6 +1,7 @@
 {
   "service_uuid": "4c2f0000-8e3d-4b7a-9c61-2f5d8a1b3e70",
   "characteristics": {
-    "battery": "4c2f0001-8e3d-4b7a-9c61-2f5d8a1b3e70"
+    "battery": "4c2f0001-8e3d-4b7a-9c61-2f5d8a1b3e70",
+    "charger": "4c2f0002-8e3d-4b7a-9c61-2f5d8a1b3e70"
   }
 }

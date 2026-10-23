@@ -2,8 +2,8 @@
 #include <NimBLEDevice.h>
 
 #define LED_PIN 2
-#define SERVICE_UUID "4c2f0000-8e3d-4b7a-9c61-2f5d8a1b3e70"
-#define BATTERY_UUID "4c2f0001-8e3d-4b7a-9c61-2f5d8a1b3e70"
+#define LED_DISCONNECT_PIN 25 // Red LED: "unplug the charger"
+#define LED_CONNECT_PIN 26    // Green LED: "plug in the charger"
 
 class ConnectionEvents : public NimBLEServerCallbacks
 {
@@ -16,6 +16,9 @@ class ConnectionEvents : public NimBLEServerCallbacks
   void onDisconnect(NimBLEServer *server, NimBLEConnInfo &info, int reason) override
   {
     digitalWrite(LED_PIN, LOW);
+    digitalWrite(LED_CONNECT_PIN, LOW);
+    digitalWrite(LED_DISCONNECT_PIN, LOW);
+
     Serial.println("Disconnected");
   }
 
@@ -41,7 +44,9 @@ class BatteryEvents : public NimBLECharacteristicCallbacks
       if (battery < 0)
         Serial.println("The laptop has no battery");
       else
+      {
         Serial.printf("Battery: %d%% %s\n", battery, charging ? "(charging)" : "");
+      }
     }
     else
     {
@@ -50,10 +55,37 @@ class BatteryEvents : public NimBLECharacteristicCallbacks
   }
 };
 
+class ChargerEvents : public NimBLECharacteristicCallbacks
+{
+  void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &info) override
+  {
+    NimBLEAttValue value = characteristic->getValue();
+    std::string command(value.c_str(), value.length());
+
+    bool connect = (command == "connect");
+    bool disconnect = (command == "disconnect");
+
+    if (!connect && !disconnect && command != "none")
+    {
+      Serial.printf("Unknown LED command: %s\n", command.c_str());
+      return;
+    }
+
+    digitalWrite(LED_CONNECT_PIN, connect ? HIGH : LOW);
+    digitalWrite(LED_DISCONNECT_PIN, disconnect ? HIGH : LOW);
+    Serial.printf("LED: %s\n", command.c_str());
+  }
+};
+
 void setup()
 {
   Serial.begin(115200);
   pinMode(LED_PIN, OUTPUT);
+  pinMode(LED_CONNECT_PIN, OUTPUT);
+  pinMode(LED_DISCONNECT_PIN, OUTPUT);
+  digitalWrite(LED_CONNECT_PIN, LOW);
+  digitalWrite(LED_DISCONNECT_PIN, LOW);
+
   delay(1000);
   Serial.println("Hello from the ESP32!");
 
@@ -67,12 +99,20 @@ void setup()
   NimBLEServer *server = NimBLEDevice::createServer();
   server->setCallbacks(new ConnectionEvents());
 
+  server->advertiseOnDisconnect(true);
   // 3. Create the service and the battery characteristic
   NimBLEService *service = server->createService(SERVICE_UUID);
   NimBLECharacteristic *battery = service->createCharacteristic(
       BATTERY_UUID,
       NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_ENC | NIMBLE_PROPERTY::WRITE_AUTHEN);
   battery->setCallbacks(new BatteryEvents());
+
+  // 3.1 Create the characteristics
+  NimBLECharacteristic *charger = service->createCharacteristic(
+      CHARGER_UUID,
+      NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_ENC | NIMBLE_PROPERTY::WRITE_AUTHEN);
+  charger->setCallbacks(new ChargerEvents());
+
   service->start();
 
   // 4. Start advertising so the laptop can find it
